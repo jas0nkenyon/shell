@@ -15,15 +15,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+/* Standard library */
 #include <stdio.h>
 #include <stdlib.h>
 #include <argp.h>
 #include <unistd.h>
 #include <pwd.h>
 
-#define MAX_CMD_SIZE 120
-#define MAX_PATH_SIZE 120
- 
+/* My includes from `./includes` */
+#include "parse.h"
+
 /* Configure argument parser
  *
  *
@@ -41,10 +42,7 @@ static struct argp_option options[] = {
   { 0 }
 };
 
-/* Used by main to communicate with parse_opt. 
- *
- *
-*/
+/* Used by main to communicate with parse_opt */
 struct arguments
 {
 //  char *args[3];                /* arg1 & arg2 */
@@ -52,12 +50,10 @@ struct arguments
     char *output_file;
 };
 
-
-/* Parse a single option. */
+/* Parse a single option */
 static error_t parse_opt (int key, char *arg, struct argp_state *state)
 {
-    /* Get the input argument from argp_parse, which we
-    know is a pointer to our arguments structure. */
+    /* Get the input argument from argp_parse, which we know is a pointer to our arguments structure */
     struct arguments *arguments = state->input;
 
     switch (key)
@@ -91,19 +87,18 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 }
     return 0;
 }
-
 static struct argp argp = {options, parse_opt, args_doc, doc, 0, 0, 0};
-
-
-
 
 int main(int argc, char **argv)
 {
     struct arguments arguments;
-    /* Default values. */
+
+    /* Default values */
     arguments.silent = 0;
     arguments.verbose = 0;
+    arguments.interactive = 0;
     arguments.output_file = "-";
+
     argp_parse(&argp, argc, argv, 0, 0, &arguments);
     
 /* Main loop for interactive mode
@@ -112,28 +107,30 @@ int main(int argc, char **argv)
  */
     if (arguments.interactive)
     {
-       printf("You are running %s in interactive mode. Enter Ctrl-D to exit.\n", argp_program_version);
+       printf("You are running %s in interactive mode. Enter Ctrl-D or type `exit` to terminate.\n", argp_program_version);
        while(1)
        {
-
-/* Get user information for shell prompt
- *
- *
-*/ 
+           /* Get user information for shell prompt */
            struct passwd *passwd = getpwuid(getuid());
            char cwd[MAX_PATH_SIZE];
            getcwd(cwd, MAX_PATH_SIZE);
-           printf("[%s@%s]$ ", passwd->pw_name, cwd);
-           char input[MAX_CMD_SIZE];
+	   char hostname[MAX_HOST_SIZE];
+           hostname[MAX_HOST_SIZE-1] = '\0';
+           gethostname(hostname, MAX_HOST_SIZE-1);
+           printf("[%s@%s %s]$ ", passwd->pw_name, hostname, cwd);
+	   fflush(NULL);
 
+           char input[MAX_CMD_SIZE];
+           
            /* Check for EOF from stdin*/
            if(!fgets(input, MAX_CMD_SIZE, stdin))
-	       return 0;     
+	   {
+	       printf("EOF received. Exiting.\n");
+	       exit(EXIT_SUCCESS);
+	   }
+	   else
+	       parse_command(input);
        }
-
      }
-
-
-
     return 0;
 }
